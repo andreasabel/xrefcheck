@@ -11,8 +11,20 @@
     let
       pkgs = haskell-nix.legacyPackages.${system}.extend serokell-nix.overlay;
 
+<<<<<<< HEAD
       flake = (pkgs.haskell-nix.stackProject {
         src = ./.;
+=======
+      # source with gitignored files filtered out
+      projectSrc = pkgs.haskell-nix.haskellLib.cleanGit {
+        src = ./.;
+        name = "xrefcheck";
+        keepGitDir = true;
+      };
+
+      flake = (pkgs.haskell-nix.stackProject {
+        src = projectSrc;
+>>>>>>> 016c503 ([Chore] Flakify xrefcheck)
         modules = [{
           packages.xrefcheck = {
             ghcOptions =
