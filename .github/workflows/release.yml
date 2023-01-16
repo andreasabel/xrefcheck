@@ -1,0 +1,67 @@
+name: master-update
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  release:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Create a pre-release
+        run: nix shell .#curl .#gitAndTools.hub -c bash -c "curl https://raw.githubusercontent.com/serokell/scratch/release-binary/scripts/release-binary.sh | bash"
+
+      - name: Push to dockerhub
+        run: |
+          nix build -L .#docker-image
+          nix shell .#skopeo -c ./scripts/upload-docker-image.sh "docker-archive:$(readlink result)" "docker://docker.io/serokell/xrefcheck:latest"
+
+
+  dockerhub-release:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions-ecosystem/action-regex-match@v2
+        id: regex-match
+        with:
+          text: ${{ github.ref_name }}
+          regex: '^(v[0-9]+.*)$'
+
+      - name: Push release to dockerhub
+        if: ${{ steps.regex-match.outputs.match != '' }}
+        run: |
+          nix build .#docker-image
+          nix shell .#skopeo -c ./scripts/upload-docker-image.sh "docker-archive:$(readlink result)" "docker://docker.io/serokell/xrefcheck:${{ github.ref_name }}"
+
+
+  build-executable:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - run: nix build -L .#xrefcheck-static
+        name: Executable
+
+      - name: Archive executable
+        uses: actions/upload-artifact@v3
+        with:
+          name: Executable
+          path: result/bin/xrefcheck
+
+  build-executable-windows:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - run: nix build -L .#xrefcheck-windows
+        name: Windows executable
+
+      - name: Archive executable
+        uses: actions/upload-artifact@v3
+        with:
+          name: Executable
+          path: result/bin/*

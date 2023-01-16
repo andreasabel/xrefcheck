@@ -1,0 +1,29 @@
+name: nix flake check
+on: push
+
+jobs:
+  check:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Check flake
+        run: nix flake check -L --allow-import-from-derivation
+
+      - name: shellcheck
+        run: nix shell .#shellcheck -c find . -name '*.sh' -exec shellcheck {} +
+
+      - name: stylish
+        run: nix shell .#gnumake .#stylish-haskell -c ./scripts/validate-stylish.sh
+
+      - name: Library and tests
+        run: nix build -L .#"xrefcheck:lib:xrefcheck" .#"xrefcheck:test:ftp-tests" .#"xrefcheck:test:xrefcheck-tests"
+
+      - name: Golden tests (bats)
+        run: nix shell .#bats .#diffutils .#xrefcheck-static -c bash -c "cd tests/golden/ && bats ./**"
+
+      - name: lint
+        run: nix shell .#haskellPackages.hlint -c hlint .
+
+      - name: Xrefcheck itself
+        run: nix run . -L
